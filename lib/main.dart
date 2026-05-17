@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
-import 'event_selection_page.dart';
+
+import 'pages/exhibition_list_page.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const ExhibitionApp());
 }
 
-class MyApp extends StatelessWidget {
+class ExhibitionApp extends StatelessWidget {
+  const ExhibitionApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: EventSelectionPage(),
+      title: 'Exhibition App',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
+        fontFamily: 'Arial',
+        scaffoldBackgroundColor: Colors.white,
+      ),
+      home: const ExhibitionListPage(),
     );
   }
 }

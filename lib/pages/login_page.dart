@@ -6,6 +6,9 @@ import '../widgets/logo_mark.dart';
 import '../widgets/phone_frame.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/role_field.dart';
+import '../data/admin_database.dart';
+import '../models/admin_user.dart';
+import 'admin/admin_shell_page.dart';
 import 'huge_x_page.dart';
 import 'register_page.dart';
 
@@ -18,6 +21,15 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   String role = 'Role (Dropdown)';
+  final usernameController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,10 +51,11 @@ class _LoginPageState extends State<LoginPage> {
             Container(
               height: 52,
               color: const Color(0xffd9d9d9),
-              child: const TextField(
+              child: TextField(
+                controller: usernameController,
                 decoration: InputDecoration(
                   prefixIcon: Icon(Icons.person_outline),
-                  hintText: 'Username',
+                  hintText: 'Username or Email',
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -52,7 +65,8 @@ class _LoginPageState extends State<LoginPage> {
             Container(
               height: 52,
               color: const Color(0xffd9d9d9),
-              child: const TextField(
+              child: TextField(
+                controller: passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   prefixIcon: Icon(Icons.lock_outline),
@@ -75,9 +89,57 @@ class _LoginPageState extends State<LoginPage> {
               padding: const EdgeInsets.symmetric(horizontal: 70),
               child: PrimaryButton(
                 label: 'Sign In',
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const HugeXPage()),
-                ),
+                onPressed: () async {
+                  final identifier = usernameController.text.trim();
+                  final password = passwordController.text.trim();
+                  if (identifier.isEmpty || password.isEmpty) {
+                    if (!mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Enter credentials.')),
+                    );
+                    return;
+                  }
+                  if (role == 'Role (Dropdown)') {
+                    if (!mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Select a role.')),
+                    );
+                    return;
+                  }
+
+                  AdminUser? user =
+                      await AdminDatabase.instance.authenticateUser(
+                    identifier: identifier,
+                    password: password,
+                    role: role == 'Administrator' ? 'Admin' : role,
+                  );
+                  if (user == null && role == 'Administrator') {
+                    user = await AdminDatabase.instance.authenticateUser(
+                      identifier: identifier,
+                      password: password,
+                      role: 'Administrator',
+                    );
+                  }
+                  if (!mounted) {
+                    return;
+                  }
+                  if (user == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Invalid credentials.')),
+                    );
+                    return;
+                  }
+                  final destination = role == 'Administrator'
+                      ? const AdminShellPage()
+                      : const HugeXPage();
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => destination),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 18),

@@ -9,24 +9,34 @@ class PhoneFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: const Color(0xff202020),
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: SizedBox(
-            width: pixel5Width,
-            height: pixel5Height,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.black, width: 2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showPreviewFrame = constraints.maxWidth > pixel5Width + 48;
+
+        if (!showPreviewFrame) {
+          return ColoredBox(color: Colors.white, child: child);
+        }
+
+        return ColoredBox(
+          color: const Color(0xff202020),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: SizedBox(
+                width: pixel5Width,
+                height: pixel5Height,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: child,
+                ),
               ),
-              child: child,
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -6,6 +6,9 @@ class AdminBoothMap {
     required this.floorPlanId,
     required this.x,
     required this.y,
+    required this.width,
+    required this.height,
+    required this.status,
     required this.attributes,
   });
 
@@ -15,6 +18,9 @@ class AdminBoothMap {
   final int floorPlanId;
   final double x;
   final double y;
+  final double width;
+  final double height;
+  final String status;
   final String attributes;
 
   Map<String, Object?> toMap() {
@@ -25,6 +31,9 @@ class AdminBoothMap {
       'floor_plan_id': floorPlanId,
       'x': x,
       'y': y,
+      'width': width,
+      'height': height,
+      'status': status,
       'attributes': attributes,
     };
   }
@@ -37,6 +46,9 @@ class AdminBoothMap {
       floorPlanId: map['floor_plan_id'] as int,
       x: (map['x'] as num).toDouble(),
       y: (map['y'] as num).toDouble(),
+      width: (map['width'] as num?)?.toDouble() ?? 0.12,
+      height: (map['height'] as num?)?.toDouble() ?? 0.12,
+      status: map['status'] as String? ?? 'available',
       attributes: map['attributes'] as String,
     );
   }

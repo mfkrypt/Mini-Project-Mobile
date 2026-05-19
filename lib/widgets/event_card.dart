@@ -39,7 +39,10 @@ class EventCard extends StatelessWidget {
                       style: const TextStyle(fontSize: 16),
                     ),
                     const SizedBox(height: 6),
-                    InfoLine(icon: Icons.calendar_month, text: event.date),
+                    InfoLine(
+                      icon: Icons.calendar_month,
+                      text: '${event.startDate} - ${event.endDate}',
+                    ),
                     const SizedBox(height: 8),
                     InfoLine(
                       icon: Icons.location_on_outlined,

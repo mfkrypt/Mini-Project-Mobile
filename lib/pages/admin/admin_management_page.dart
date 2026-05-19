@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/admin_database.dart';
 import '../../models/admin_booth_type.dart';
 import '../../models/admin_event.dart';
-import '../../models/admin_reservation.dart';
+import '../../models/exhibitor_application.dart';
 import '../../widgets/admin_table.dart';
 
 class AdminManagementPage extends StatefulWidget {
@@ -15,10 +15,11 @@ class AdminManagementPage extends StatefulWidget {
 
 class _AdminManagementPageState extends State<AdminManagementPage> {
   final db = AdminDatabase.instance;
-  late Future<List<AdminReservation>> reservationsFuture;
+  late Future<List<ExhibitorApplication>> applicationsFuture;
   late Future<List<AdminEvent>> eventsFuture;
   late Future<List<AdminBoothType>> boothTypesFuture;
-  String reservationQuery = '';
+  String applicationQuery = '';
+  String applicationStatus = 'Pending';
   String eventQuery = '';
   String boothQuery = '';
 
@@ -29,32 +30,26 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
   }
 
   void _reload() {
-    reservationsFuture = db.fetchReservations();
+    applicationsFuture = db.fetchAllApplications(applicationStatus);
     eventsFuture = db.fetchEvents();
     boothTypesFuture = db.fetchBoothTypes();
   }
 
-  Future<void> _showReservationDialog({AdminReservation? reservation}) async {
-    final dateController = TextEditingController(text: reservation?.date ?? '');
-    final emailController = TextEditingController(text: reservation?.email ?? '');
-
+  Future<void> _updateApplicationStatus(
+    ExhibitorApplication application,
+    String nextStatus,
+  ) async {
+    final reasonController = TextEditingController();
+    final needsReason = nextStatus == 'Rejected' || nextStatus == 'Cancelled';
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(reservation == null ? 'Add Reservation' : 'Edit Reservation'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: dateController,
-                decoration: const InputDecoration(labelText: 'Date'),
-              ),
-              TextField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-            ],
+          title: Text('Reason for ${nextStatus.toLowerCase()}'),
+          content: TextField(
+            controller: reasonController,
+            maxLines: 3,
+            decoration: const InputDecoration(hintText: 'Reason'),
           ),
           actions: [
             TextButton(
@@ -63,7 +58,7 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
             ),
             FilledButton(
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Save'),
+              child: const Text('Submit'),
             ),
           ],
         );
@@ -71,49 +66,42 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
     );
 
     if (shouldSave == true) {
-      await db.upsertReservation(
-        AdminReservation(
-          id: reservation?.id,
-          date: dateController.text.trim(),
-          email: emailController.text.trim(),
-          status: reservation?.status ?? 'Active',
-        ),
+      final reason = reasonController.text.trim();
+      final finalReason = needsReason && reason.isEmpty
+          ? 'No reason provided'
+          : reason;
+      await db.updateApplicationStatus(
+        application.id!,
+        nextStatus,
+        needsReason ? finalReason : null,
       );
-      setState(_reload);
-    }
-  }
-
-  Future<void> _deleteReservation(AdminReservation reservation) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Cancel Reservation'),
-          content: Text('Cancel booking for ${reservation.email}?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Keep'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Cancel Booking'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldDelete == true && reservation.id != null) {
-      await db.deleteReservation(reservation.id!);
+      if (nextStatus == 'Approved' ||
+          nextStatus == 'Rejected' ||
+          nextStatus == 'Cancelled') {
+        final boothIds = await db.fetchApplicationBoothIds(application.id!);
+        for (final boothId in boothIds) {
+          await db.updateBoothStatus(
+            boothId,
+            nextStatus == 'Approved' ? 'booked' : 'available',
+          );
+        }
+      }
+      if (!mounted) {
+        return;
+      }
       setState(_reload);
     }
   }
 
   Future<void> _showEventDialog({AdminEvent? event}) async {
     final nameController = TextEditingController(text: event?.name ?? '');
-    final dateController = TextEditingController(text: event?.date ?? '');
+    final startController = TextEditingController(text: event?.startDate ?? '');
+    final endController = TextEditingController(text: event?.endDate ?? '');
+    final venueController = TextEditingController(text: event?.venue ?? '');
+    final organizerController =
+        TextEditingController(text: '${event?.organizerId ?? 0}');
     bool published = event?.isPublished ?? true;
+    bool blockAdjacent = event?.blockAdjacent ?? true;
 
     final shouldSave = await showDialog<bool>(
       context: context,
@@ -127,9 +115,31 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
                 controller: nameController,
                 decoration: const InputDecoration(labelText: 'Event Name'),
               ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: startController,
+                      decoration: const InputDecoration(labelText: 'Start Date'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: endController,
+                      decoration: const InputDecoration(labelText: 'End Date'),
+                    ),
+                  ),
+                ],
+              ),
               TextField(
-                controller: dateController,
-                decoration: const InputDecoration(labelText: 'Date'),
+                controller: venueController,
+                decoration: const InputDecoration(labelText: 'Venue'),
+              ),
+              TextField(
+                controller: organizerController,
+                decoration: const InputDecoration(labelText: 'Organizer ID'),
+                keyboardType: TextInputType.number,
               ),
               Row(
                 children: [
@@ -138,6 +148,16 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
                   Switch(
                     value: published,
                     onChanged: (value) => published = value,
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  const Text('Block Adjacent'),
+                  const Spacer(),
+                  Switch(
+                    value: blockAdjacent,
+                    onChanged: (value) => blockAdjacent = value,
                   ),
                 ],
               ),
@@ -162,8 +182,12 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
         AdminEvent(
           id: event?.id,
           name: nameController.text.trim(),
-          date: dateController.text.trim(),
+          venue: venueController.text.trim(),
+          startDate: startController.text.trim(),
+          endDate: endController.text.trim(),
           isPublished: published,
+          organizerId: int.tryParse(organizerController.text.trim()) ?? 0,
+          blockAdjacent: blockAdjacent,
         ),
       );
       setState(_reload);
@@ -198,12 +222,14 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
   }
 
   Future<void> _showBoothDialog({AdminBoothType? boothType}) async {
+    final events = await db.fetchEvents();
     final nameController = TextEditingController(text: boothType?.name ?? '');
     final priceController =
         TextEditingController(text: boothType?.price.toString() ?? '');
     final countController =
         TextEditingController(text: boothType?.count.toString() ?? '');
     bool available = boothType?.available ?? true;
+    int selectedEventId = boothType?.eventId ?? (events.isNotEmpty ? events.first.id ?? 0 : 0);
 
     final shouldSave = await showDialog<bool>(
       context: context,
@@ -213,6 +239,25 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (events.isNotEmpty)
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: selectedEventId,
+                    items: events
+                        .map(
+                          (event) => DropdownMenuItem(
+                            value: event.id,
+                            child: Text(event.name),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        selectedEventId = value;
+                      }
+                    },
+                  ),
+                ),
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(labelText: 'Booth Type'),
@@ -257,6 +302,7 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
       await db.upsertBoothType(
         AdminBoothType(
           id: boothType?.id,
+          eventId: selectedEventId,
           name: nameController.text.trim(),
           price: double.tryParse(priceController.text.trim()) ?? 0,
           available: available,
@@ -312,56 +358,87 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: TextField(
-            onChanged: (value) => setState(() => reservationQuery = value),
+            onChanged: (value) => setState(() => applicationQuery = value),
             decoration: const InputDecoration(
               border: InputBorder.none,
-              hintText: 'Filter by date or email',
+              hintText: 'Filter by booth, event, or status',
             ),
           ),
         ),
         const SizedBox(height: 10),
-        FutureBuilder<List<AdminReservation>>(
-          future: reservationsFuture,
+        DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: applicationStatus,
+            items: const [
+              DropdownMenuItem(value: 'Pending', child: Text('Pending')),
+              DropdownMenuItem(value: 'Approved', child: Text('Approved')),
+              DropdownMenuItem(value: 'Rejected', child: Text('Rejected')),
+              DropdownMenuItem(value: 'Cancelled', child: Text('Cancelled')),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  applicationStatus = value;
+                  _reload();
+                });
+              }
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        FutureBuilder<List<ExhibitorApplication>>(
+          future: applicationsFuture,
           builder: (context, snapshot) {
-            final reservations = snapshot.data ?? [];
-            final filtered = reservations.where((reservation) {
+            final applications = snapshot.data ?? [];
+            final filtered = applications.where((application) {
               final target =
-                  '${reservation.date} ${reservation.email}'.toLowerCase();
-              return target.contains(reservationQuery.toLowerCase());
+                  '${application.boothLabel} ${application.eventName} ${application.status}'.toLowerCase();
+              return target.contains(applicationQuery.toLowerCase());
             }).toList();
             return AdminTable(
-              headers: const ['ID', 'Date', 'Email', 'Actions'],
+              headers: const ['ID', 'Booth', 'Event', 'Actions'],
               columnWidths: const {
                 0: FixedColumnWidth(34),
-                1: FixedColumnWidth(80),
+                1: FixedColumnWidth(70),
                 2: FlexColumnWidth(),
-                3: FixedColumnWidth(80),
+                3: FixedColumnWidth(90),
               },
               rows: filtered
                   .map(
-                    (reservation) => [
-                      Text('${reservation.id ?? ''}'),
-                      Text(reservation.date),
-                      Text(reservation.email, overflow: TextOverflow.ellipsis),
+                    (application) => [
+                      Text('${application.id ?? ''}'),
+                      Text(application.boothLabel ?? '-'),
+                      Text(
+                        application.eventName ?? '-',
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       Row(
                         children: [
                           AdminActionIcon(
                             icon: Icons.remove_red_eye_outlined,
-                            onPressed: () => _showReservationDialog(
-                              reservation: reservation,
-                            ),
+                            onPressed: () {},
                           ),
                           const SizedBox(width: 8),
                           AdminActionIcon(
-                            icon: Icons.edit,
-                            onPressed: () => _showReservationDialog(
-                              reservation: reservation,
-                            ),
+                            icon: Icons.check,
+                            onPressed: application.id == null
+                                ? () {}
+                                : () => _updateApplicationStatus(
+                                      application,
+                                      'Approved',
+                                    ),
                           ),
                           const SizedBox(width: 8),
                           AdminActionIcon(
                             icon: Icons.close,
-                            onPressed: () => _deleteReservation(reservation),
+                            onPressed: application.id == null
+                                ? () {}
+                                : () => _updateApplicationStatus(
+                                      application,
+                                      applicationStatus == 'Approved'
+                                          ? 'Cancelled'
+                                          : 'Rejected',
+                                    ),
                           ),
                         ],
                       ),
@@ -417,7 +494,8 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
           builder: (context, snapshot) {
             final events = snapshot.data ?? [];
             final filtered = events.where((event) {
-              final target = '${event.name} ${event.date}'.toLowerCase();
+              final target =
+                  '${event.name} ${event.startDate} ${event.endDate}'.toLowerCase();
               return target.contains(eventQuery.toLowerCase());
             }).toList();
             return AdminTable(
@@ -432,7 +510,7 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
                   .map(
                     (event) => [
                       Text(event.name),
-                      Text(event.date),
+                      Text('${event.startDate} - ${event.endDate}'),
                       Switch(
                         value: event.isPublished,
                         onChanged: (value) async {
@@ -440,8 +518,12 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
                             AdminEvent(
                               id: event.id,
                               name: event.name,
-                              date: event.date,
+                              venue: event.venue,
+                              startDate: event.startDate,
+                              endDate: event.endDate,
                               isPublished: value,
+                              organizerId: event.organizerId,
+                              blockAdjacent: event.blockAdjacent,
                             ),
                           );
                           setState(_reload);
@@ -519,6 +601,7 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
                               await db.upsertBoothType(
                                 AdminBoothType(
                                   id: type.id,
+                                  eventId: type.eventId,
                                   name: type.name,
                                   price: type.price,
                                   available: value,

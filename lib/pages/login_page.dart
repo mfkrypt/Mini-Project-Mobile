@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/app_name.dart';
-import '../widgets/form_field_box.dart';
 import '../widgets/logo_mark.dart';
 import '../widgets/phone_frame.dart';
 import '../widgets/primary_button.dart';
@@ -9,7 +8,8 @@ import '../widgets/role_field.dart';
 import '../data/admin_database.dart';
 import '../models/admin_user.dart';
 import 'admin/admin_shell_page.dart';
-import 'huge_x_page.dart';
+import 'exhibitor/exhibitor_shell_page.dart';
+import 'organizer/organizer_shell_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -111,19 +111,14 @@ class _LoginPageState extends State<LoginPage> {
                     return;
                   }
 
+                  final normalizedRole =
+                      role == 'Administrator' ? 'Admin' : role;
                   AdminUser? user =
                       await AdminDatabase.instance.authenticateUser(
                     identifier: identifier,
                     password: password,
-                    role: role == 'Administrator' ? 'Admin' : role,
+                    role: normalizedRole,
                   );
-                  if (user == null && role == 'Administrator') {
-                    user = await AdminDatabase.instance.authenticateUser(
-                      identifier: identifier,
-                      password: password,
-                      role: 'Administrator',
-                    );
-                  }
                   if (!mounted) {
                     return;
                   }
@@ -135,7 +130,9 @@ class _LoginPageState extends State<LoginPage> {
                   }
                   final destination = role == 'Administrator'
                       ? const AdminShellPage()
-                      : const HugeXPage();
+                      : role == 'Organizer'
+                          ? OrganizerShellPage(user: user)
+                          : ExhibitorShellPage(user: user);
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(builder: (_) => destination),
                   );

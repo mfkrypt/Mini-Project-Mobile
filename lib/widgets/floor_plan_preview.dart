@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
 
 class FloorPlanPreview extends StatelessWidget {
-  const FloorPlanPreview({super.key});
+  const FloorPlanPreview({super.key, this.imagePath});
+
+  final String? imagePath;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 306,
       color: const Color(0xfff3f4f2),
-      child: CustomPaint(
-        painter: FloorPlanPainter(),
-        child: const SizedBox.expand(),
-      ),
+      child: imagePath == null
+          ? CustomPaint(
+              painter: FloorPlanPainter(),
+              child: const SizedBox.expand(),
+            )
+          : ClipRRect(
+              child: Image.asset(
+                imagePath!,
+                fit: BoxFit.cover,
+              ),
+            ),
     );
   }
 }

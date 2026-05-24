@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/app_name.dart';
-import '../widgets/form_field_box.dart';
 import '../widgets/logo_mark.dart';
 import '../widgets/phone_frame.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/role_field.dart';
-import 'huge_x_page.dart';
+import '../data/admin_database.dart';
+import '../models/admin_user.dart';
+import '../utils/route_names.dart';
+import 'admin/admin_shell_page.dart';
+import 'exhibitor/exhibitor_shell_page.dart';
+import 'organizer/organizer_shell_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -17,6 +21,19 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   String role = 'Role (Dropdown)';
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmController = TextEditingController();
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    confirmController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,29 +52,143 @@ class _RegisterPageState extends State<RegisterPage> {
               style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 16),
-            const FormFieldBox(icon: Icons.person_outline, label: 'Username'),
+            Container(
+              height: 52,
+              color: const Color(0xffd9d9d9),
+              child: TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.person_outline),
+                  hintText: 'Username',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
             const SizedBox(height: 18),
-            const FormFieldBox(icon: Icons.mail_outline, label: 'Email'),
+            Container(
+              height: 52,
+              color: const Color(0xffd9d9d9),
+              child: TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.mail_outline),
+                  hintText: 'Email',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
             const SizedBox(height: 18),
-            const FormFieldBox(icon: Icons.lock_outline, label: 'Password'),
+            Container(
+              height: 52,
+              color: const Color(0xffd9d9d9),
+              child: TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.lock_outline),
+                  hintText: 'Password',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
             const SizedBox(height: 18),
-            const FormFieldBox(
-              icon: Icons.lock_outline,
-              label: 'Confirm Password',
+            Container(
+              height: 52,
+              color: const Color(0xffd9d9d9),
+              child: TextField(
+                controller: confirmController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.lock_outline),
+                  hintText: 'Confirm Password',
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
             const SizedBox(height: 18),
             RoleField(
               value: role,
               onChanged: (value) => setState(() => role = value),
+              includeAdmin: false,
             ),
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 72),
               child: PrimaryButton(
                 label: 'Sign Up',
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const HugeXPage()),
-                ),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(context);
+                  final name = nameController.text.trim();
+                  final email = emailController.text.trim();
+                  final password = passwordController.text.trim();
+                  final confirm = confirmController.text.trim();
+                  if (name.isEmpty || email.isEmpty || password.isEmpty) {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Fill in all fields.')),
+                    );
+                    return;
+                  }
+                  if (password != confirm) {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Passwords do not match.')),
+                    );
+                    return;
+                  }
+                  if (role == 'Role (Dropdown)' || role == 'Administrator') {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Select Organizer or Exhibitor.'),
+                      ),
+                    );
+                    return;
+                  }
+
+                  final db = AdminDatabase.instance;
+                  final exists = await db.userExists(email: email, name: name);
+                  if (exists) {
+                    if (!mounted) {
+                      return;
+                    }
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Account already exists.')),
+                    );
+                    return;
+                  }
+                  final normalizedRole = role == 'Administrator'
+                      ? 'Admin'
+                      : role;
+                  await db.upsertUser(
+                    AdminUser(name: name, email: email, role: normalizedRole),
+                    passwordHash: db.hashPassword(password),
+                  );
+                  final user = await db.authenticateUser(
+                    identifier: email,
+                    password: password,
+                    role: normalizedRole,
+                  );
+                  if (!mounted || user == null) {
+                    return;
+                  }
+                  final isExhibitor = role == 'Exhibitor';
+                  final destination = role == 'Administrator'
+                      ? const AdminShellPage()
+                      : role == 'Organizer'
+                      ? OrganizerShellPage(user: user)
+                      : ExhibitorShellPage(user: user);
+                  navigator.pushReplacement(
+                    MaterialPageRoute(
+                      settings: RouteSettings(
+                        name: isExhibitor ? exhibitorShellRouteName : null,
+                      ),
+                      builder: (_) => destination,
+                    ),
+                  );
+                },
               ),
             ),
           ],

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/app_name.dart';
-import '../widgets/form_field_box.dart';
 import '../widgets/logo_mark.dart';
 import '../widgets/phone_frame.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/role_field.dart';
-import 'huge_x_page.dart';
+import '../data/admin_database.dart';
+import '../models/admin_user.dart';
+import '../utils/route_names.dart';
+import 'admin/admin_shell_page.dart';
+import 'exhibitor/exhibitor_shell_page.dart';
+import 'organizer/organizer_shell_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -18,6 +22,15 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   String role = 'Role (Dropdown)';
+  final usernameController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,10 +52,11 @@ class _LoginPageState extends State<LoginPage> {
             Container(
               height: 52,
               color: const Color(0xffd9d9d9),
-              child: const TextField(
+              child: TextField(
+                controller: usernameController,
                 decoration: InputDecoration(
                   prefixIcon: Icon(Icons.person_outline),
-                  hintText: 'Username',
+                  hintText: 'Username or Email',
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -52,7 +66,8 @@ class _LoginPageState extends State<LoginPage> {
             Container(
               height: 52,
               color: const Color(0xffd9d9d9),
-              child: const TextField(
+              child: TextField(
+                controller: passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   prefixIcon: Icon(Icons.lock_outline),
@@ -75,9 +90,57 @@ class _LoginPageState extends State<LoginPage> {
               padding: const EdgeInsets.symmetric(horizontal: 70),
               child: PrimaryButton(
                 label: 'Sign In',
-                onPressed: () => Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const HugeXPage()),
-                ),
+                onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(context);
+                  final identifier = usernameController.text.trim();
+                  final password = passwordController.text.trim();
+                  if (identifier.isEmpty || password.isEmpty) {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Enter credentials.')),
+                    );
+                    return;
+                  }
+                  if (role == 'Role (Dropdown)') {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Select a role.')),
+                    );
+                    return;
+                  }
+
+                  final normalizedRole = role == 'Administrator'
+                      ? 'Admin'
+                      : role;
+                  AdminUser? user = await AdminDatabase.instance
+                      .authenticateUser(
+                        identifier: identifier,
+                        password: password,
+                        role: normalizedRole,
+                      );
+                  if (!mounted) {
+                    return;
+                  }
+                  if (user == null) {
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Invalid credentials.')),
+                    );
+                    return;
+                  }
+                  final isExhibitor = role == 'Exhibitor';
+                  final destination = role == 'Administrator'
+                      ? const AdminShellPage()
+                      : role == 'Organizer'
+                      ? OrganizerShellPage(user: user)
+                      : ExhibitorShellPage(user: user);
+                  navigator.pushReplacement(
+                    MaterialPageRoute(
+                      settings: RouteSettings(
+                        name: isExhibitor ? exhibitorShellRouteName : null,
+                      ),
+                      builder: (_) => destination,
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 18),

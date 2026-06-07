@@ -199,7 +199,6 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
 
     final nameController = TextEditingController();
     final priceController = TextEditingController();
-    final countController = TextEditingController();
     bool available = true;
 
     final shouldSave = await showDialog<bool>(
@@ -219,11 +218,6 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
                   TextField(
                     controller: priceController,
                     decoration: const InputDecoration(labelText: 'Price'),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: countController,
-                    decoration: const InputDecoration(labelText: 'Count'),
                     keyboardType: TextInputType.number,
                   ),
                   Row(
@@ -274,7 +268,7 @@ class _AdminPanelPageState extends State<AdminPanelPage> {
           name: name,
           price: double.tryParse(priceController.text.trim()) ?? 0,
           available: available,
-          count: int.tryParse(countController.text.trim()) ?? 0,
+          count: 0,
         ),
       );
       await _loadData();

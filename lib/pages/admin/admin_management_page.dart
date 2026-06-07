@@ -314,11 +314,12 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
                     decoration: const InputDecoration(labelText: 'Price'),
                     keyboardType: TextInputType.number,
                   ),
-                  TextField(
-                    controller: countController,
-                    decoration: const InputDecoration(labelText: 'Count'),
-                    keyboardType: TextInputType.number,
-                  ),
+                  if (boothType != null)
+                    TextField(
+                      controller: countController,
+                      decoration: const InputDecoration(labelText: 'Count'),
+                      keyboardType: TextInputType.number,
+                    ),
                   Row(
                     children: [
                       const Text('Available'),
@@ -367,7 +368,9 @@ class _AdminManagementPageState extends State<AdminManagementPage> {
           name: name,
           price: double.tryParse(priceController.text.trim()) ?? 0,
           available: available,
-          count: int.tryParse(countController.text.trim()) ?? 0,
+          count: boothType == null
+              ? 0
+              : int.tryParse(countController.text.trim()) ?? 0,
         ),
       );
       setState(_reload);

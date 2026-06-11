@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 
 class RoleField extends StatelessWidget {
-  const RoleField({super.key, required this.value, required this.onChanged});
+  const RoleField({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.includeAdmin = true,
+  });
 
   final String value;
   final ValueChanged<String> onChanged;
+  final bool includeAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -21,23 +27,24 @@ class RoleField extends StatelessWidget {
             size: 36,
             color: Color(0xff888888),
           ),
-          items: const [
-            DropdownMenuItem(
+          items: [
+            const DropdownMenuItem(
               value: 'Role (Dropdown)',
               child: RoleLabel(text: 'Role (Dropdown)'),
             ),
-            DropdownMenuItem(
+            const DropdownMenuItem(
               value: 'Organizer',
               child: RoleLabel(text: 'Organizer'),
             ),
-            DropdownMenuItem(
+            const DropdownMenuItem(
               value: 'Exhibitor',
               child: RoleLabel(text: 'Exhibitor'),
             ),
-            DropdownMenuItem(
-              value: 'Administrator',
-              child: RoleLabel(text: 'Administrator'),
-            ),
+            if (includeAdmin)
+              const DropdownMenuItem(
+                value: 'Administrator',
+                child: RoleLabel(text: 'Administrator'),
+              ),
           ],
           onChanged: (value) {
             if (value != null) {

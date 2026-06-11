@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'pages/exhibition_list_page.dart';
+import 'utils/app_route_observer.dart';
 
 void main() {
   runApp(const ExhibitionApp());
@@ -14,6 +15,7 @@ class ExhibitionApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Exhibition App',
+      navigatorObservers: [appRouteObserver],
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.black),
